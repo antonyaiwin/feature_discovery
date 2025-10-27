@@ -6,6 +6,8 @@ import 'package:feature_discovery/src/rendering.dart';
 import 'package:feature_discovery/src/widgets.dart';
 import 'package:flutter/material.dart';
 
+const double kDefaultTargetRadius = 44;
+
 class DescribedFeatureOverlay extends StatefulWidget {
   static const double kDefaultBackgroundOpacity = 0.96;
 
@@ -137,6 +139,9 @@ class DescribedFeatureOverlay extends StatefulWidget {
   /// all of the current steps are dismissed.
   final Future<bool> Function()? onBackgroundTap;
 
+  /// Radius of the target circle. defaults to 44.
+  final double? targetRadius;
+
   const DescribedFeatureOverlay({
     Key? key,
     required this.featureId,
@@ -162,6 +167,7 @@ class DescribedFeatureOverlay extends StatefulWidget {
     this.barrierDismissible = true,
     this.backgroundDismissible = false,
     this.onBackgroundTap,
+    this.targetRadius,
   })  : assert(
           barrierDismissible == true || onDismiss == null,
           'Cannot provide both a barrierDismissible and onDismiss function\n'
@@ -187,6 +193,7 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
   /// The usual order is open, complete, then dismiss across the project,
   /// but pulse does not exist for most other occurrences.
   late AnimationController _pulseController;
+  late CurvedAnimation _pulseAnimation;
   late AnimationController _completeController;
   late AnimationController _dismissController;
 
@@ -254,6 +261,7 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
   @override
   void dispose() {
     _openController.dispose();
+    _pulseAnimation.dispose();
     _pulseController.dispose();
     _completeController.dispose();
     _dismissController.dispose();
@@ -310,17 +318,20 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
       ..addListener(
           () => setState(() => _transitionProgress = _openController.value));
 
-    _pulseController = AnimationController(
-        vsync: this, duration: widget.pulseDuration)
+    _pulseController =
+        AnimationController(vsync: this, duration: widget.pulseDuration)
+          ..addStatusListener(
+            (AnimationStatus status) {
+              if (status == AnimationStatus.completed) {
+                _pulseController.forward(from: 0);
+              }
+            },
+          );
+
+    _pulseAnimation = CurvedAnimation(
+        parent: _pulseController, curve: Curves.easeInOut)
       ..addListener(
-          () => setState(() => _transitionProgress = _pulseController.value))
-      ..addStatusListener(
-        (AnimationStatus status) {
-          if (status == AnimationStatus.completed) {
-            _pulseController.forward(from: 0);
-          }
-        },
-      );
+          () => setState(() => _transitionProgress = _pulseAnimation.value));
 
     _completeController =
         AnimationController(vsync: this, duration: widget.completeDuration)
@@ -579,10 +590,13 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
     final contentWidth = min(_screenSize.width, _screenSize.height);
 
     final dx = contentCenterPosition.dx - contentWidth;
+
     final contentPosition = Offset(
       (dx.isNegative) ? 0.0 : dx,
       anchor.dy +
-          contentOffsetMultiplier * (44 + 20), // 44 is the tap target's radius.
+          contentOffsetMultiplier *
+              ((widget.targetRadius ?? kDefaultTargetRadius) * 1.1 +
+                  20), // 44 is the default tap target's radius.
     );
 
     Widget background = Container(
@@ -669,6 +683,7 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
           transitionProgress: _transitionProgress!,
           anchor: anchor,
           color: widget.targetColor,
+          targetRadius: widget.targetRadius,
         ),
         _TapTarget(
           state: _state!,
@@ -677,6 +692,7 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
           color: widget.targetColor,
           onPressed: tryCompleteThis,
           child: widget.tapTarget,
+          targetRadius: widget.targetRadius,
         ),
       ],
     );
@@ -783,6 +799,7 @@ class _Pulse extends StatelessWidget {
   final double transitionProgress;
   final Offset anchor;
   final Color color;
+  final double? targetRadius;
 
   const _Pulse({
     Key? key,
@@ -790,18 +807,15 @@ class _Pulse extends StatelessWidget {
     required this.transitionProgress,
     required this.anchor,
     required this.color,
+    this.targetRadius,
   }) : super(key: key);
 
   double get radius {
+    final targetRadius = this.targetRadius ?? kDefaultTargetRadius;
     switch (state) {
       case FeatureOverlayState.opened:
-        double expandedPercent;
-        if (transitionProgress >= 0.3 && transitionProgress <= 0.8) {
-          expandedPercent = (transitionProgress - 0.3) / 0.5;
-        } else {
-          expandedPercent = 0.0;
-        }
-        return 44.0 + (35.0 * expandedPercent);
+        final double expandedPercent = delayedLerp(transitionProgress, 0.5);
+        return (1.0 + expandedPercent) * targetRadius;
       case FeatureOverlayState.dismissing:
       case FeatureOverlayState.completing:
         return 0; //(44.0 + 35.0) * (1.0 - transitionProgress);
@@ -814,9 +828,7 @@ class _Pulse extends StatelessWidget {
   double get opacity {
     switch (state) {
       case FeatureOverlayState.opened:
-        final percentOpaque =
-            1 - ((transitionProgress.clamp(0.3, 0.8) - 0.3) / 0.5);
-        return (percentOpaque * 0.75).clamp(0, 1);
+        return (1.0 - delayedLerp(transitionProgress, 0.5));
       case FeatureOverlayState.completing:
       case FeatureOverlayState.dismissing:
         return 0; //((1.0 - transitionProgress) * 0.5).clamp(0.0, 1.0);
@@ -824,6 +836,14 @@ class _Pulse extends StatelessWidget {
       case FeatureOverlayState.closed:
         return 0;
     }
+  }
+
+  double delayedLerp(double lerp, double threshold) {
+    if (lerp < threshold) {
+      return 0.0;
+    }
+
+    return (lerp - threshold) / (1.0 - threshold);
   }
 
   @override
@@ -849,22 +869,23 @@ class _TapTarget extends StatelessWidget {
   final Widget child;
   final Color color;
   final VoidCallback onPressed;
+  final double? targetRadius;
 
-  const _TapTarget({
-    Key? key,
-    required this.anchor,
-    required this.child,
-    required this.onPressed,
-    required this.color,
-    required this.state,
-    required this.transitionProgress,
-  }) : super(key: key);
+  const _TapTarget(
+      {Key? key,
+      required this.anchor,
+      required this.child,
+      required this.onPressed,
+      required this.color,
+      required this.state,
+      required this.transitionProgress,
+      this.targetRadius})
+      : super(key: key);
 
   double get opacity {
     switch (state) {
       case FeatureOverlayState.opening:
-        return const Interval(0, 0.3, curve: Curves.easeOut)
-            .transform(transitionProgress);
+        return 1;
       case FeatureOverlayState.completing:
       case FeatureOverlayState.dismissing:
         return 1 -
@@ -877,26 +898,31 @@ class _TapTarget extends StatelessWidget {
     }
   }
 
+  static const double targetPulseRadiusRatio = 0.1;
+
   double get radius {
+    final targetRadius = this.targetRadius ?? kDefaultTargetRadius;
+    final targetPulseRadius = targetPulseRadiusRatio * targetRadius;
     switch (state) {
       case FeatureOverlayState.closed:
         return 0;
       case FeatureOverlayState.opening:
-        return 20 + 24 * transitionProgress;
+        return 20 + (targetRadius - 20) * transitionProgress;
       case FeatureOverlayState.opened:
-        double expandedPercent;
-        if (transitionProgress < 0.3) {
-          expandedPercent = transitionProgress / 0.3;
-        } else if (transitionProgress < 0.6) {
-          expandedPercent = 1 - ((transitionProgress - 0.3) / 0.3);
-        } else {
-          expandedPercent = 0;
-        }
-        return 44 + (20 * expandedPercent);
+        return targetRadius +
+            halfwayLerp(transitionProgress) * targetPulseRadius;
       case FeatureOverlayState.completing:
       case FeatureOverlayState.dismissing:
-        return 20 + 24 * (1 - transitionProgress);
+        return 20 + (targetRadius - 20) * (1 - transitionProgress);
     }
+  }
+
+  double halfwayLerp(double lerp) {
+    if (lerp < 0.5) {
+      return lerp / 0.5;
+    }
+
+    return (1.0 - lerp) / 0.5;
   }
 
   @override
