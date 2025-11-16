@@ -685,6 +685,13 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
           color: widget.targetColor,
           targetRadius: widget.targetRadius,
         ),
+        _TapTargetPulse(
+          state: _state!,
+          transitionProgress: _transitionProgress!,
+          anchor: anchor,
+          color: widget.targetColor,
+          targetRadius: widget.targetRadius,
+        ),
         _TapTarget(
           state: _state!,
           transitionProgress: _transitionProgress!,
@@ -898,6 +905,72 @@ class _TapTarget extends StatelessWidget {
     }
   }
 
+  double get radius {
+    final targetRadius = this.targetRadius ?? kDefaultTargetRadius;
+    return targetRadius;
+    switch (state) {
+      case FeatureOverlayState.closed:
+        return 0;
+      case FeatureOverlayState.opening:
+        return 20 + (targetRadius - 20) * transitionProgress;
+      case FeatureOverlayState.opened:
+        return targetRadius;
+      case FeatureOverlayState.completing:
+      case FeatureOverlayState.dismissing:
+        return 20 + (targetRadius - 20) * (1 - transitionProgress);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => CenterAbout(
+        position: anchor,
+        child: SizedBox(
+          height: 2 * radius,
+          width: 2 * radius,
+          child: Opacity(
+            opacity: opacity,
+            child: RawMaterialButton(
+              shape: const CircleBorder(),
+              child: child,
+              onPressed: onPressed,
+            ),
+          ),
+        ),
+      );
+}
+
+class _TapTargetPulse extends StatelessWidget {
+  final FeatureOverlayState state;
+  final double transitionProgress;
+  final Offset anchor;
+  final Color color;
+  final double? targetRadius;
+
+  const _TapTargetPulse(
+      {Key? key,
+      required this.anchor,
+      required this.color,
+      required this.state,
+      required this.transitionProgress,
+      this.targetRadius})
+      : super(key: key);
+
+  double get opacity {
+    switch (state) {
+      case FeatureOverlayState.opening:
+        return 1;
+      case FeatureOverlayState.completing:
+      case FeatureOverlayState.dismissing:
+        return 1 -
+            const Interval(0.7, 1, curve: Curves.easeOut)
+                .transform(transitionProgress);
+      case FeatureOverlayState.closed:
+        return 0;
+      case FeatureOverlayState.opened:
+        return 1;
+    }
+  }
+
   static const double targetPulseRadiusRatio = 0.1;
 
   double get radius {
@@ -931,15 +1004,9 @@ class _TapTarget extends StatelessWidget {
         child: Container(
           height: 2 * radius,
           width: 2 * radius,
-          child: Opacity(
-            opacity: opacity,
-            child: RawMaterialButton(
-              fillColor: color,
-              shape: const CircleBorder(),
-              child: child,
-              onPressed: onPressed,
-            ),
-          ),
+          decoration: BoxDecoration(
+              color: color.withValues(alpha: opacity), shape: BoxShape.circle),
+          child: const SizedBox.expand(),
         ),
       );
 }
