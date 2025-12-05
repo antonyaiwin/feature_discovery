@@ -659,6 +659,7 @@ class _DescribedFeatureOverlayState extends State<DescribedFeatureOverlay>
             contentOffsetMultiplier: contentOffsetMultiplier,
             state: _state!,
             transitionProgress: _transitionProgress,
+            targetRadius: widget.targetRadius ?? kDefaultTargetRadius,
           ),
           children: <Widget>[
             LayoutId(

@@ -38,6 +38,8 @@ class BackgroundContentLayoutDelegate extends MultiChildLayoutDelegate {
   final FeatureOverlayState state;
   final double? transitionProgress;
 
+  final double targetRadius;
+
   BackgroundContentLayoutDelegate({
     required this.overflowMode,
     required this.contentPosition,
@@ -47,6 +49,7 @@ class BackgroundContentLayoutDelegate extends MultiChildLayoutDelegate {
     required this.contentOffsetMultiplier,
     required this.state,
     required this.transitionProgress,
+    required this.targetRadius,
   });
 
   @override
@@ -74,9 +77,10 @@ class BackgroundContentLayoutDelegate extends MultiChildLayoutDelegate {
         overflowMode == OverflowMode.clipContent)
       matchedRadius = backgroundRadius;
     else {
-      // 75 is the radius of the pulse when fully expanded.
+      // targetRadius * 2 is the radius of the pulse when fully expanded.
       // Calculating the distance here is easy because the pulse is a circle.
-      final distanceToOuterPulse = anchorPoint.distanceTo(backgroundPoint) + 75;
+      final distanceToOuterPulse =
+          anchorPoint.distanceTo(backgroundPoint) + targetRadius * 2;
 
       // Calculate distance to the furthest point of the content.
       final contentArea = Rect.fromLTWH(contentPoint.x, contentPoint.y,
