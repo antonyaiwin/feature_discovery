@@ -1,12 +1,16 @@
 # Changelog
+
+## 0.14.3
+* Added support for customizable target radius in `DescribedFeatureOverlay` via the `targetRadius` property.
+* Improved pulse animation for smoother visuals.
+
 ## 0.14.2
 * Updated All Dependencies versions
 * Updated To Flutter version 3.24.3
-# Changelog
+
 ## 0.14.1
 * Updated Provider version
 
-# Changelog
 ## 0.14.0
 * Migrated to null safety
 

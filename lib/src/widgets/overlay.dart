@@ -139,7 +139,9 @@ class DescribedFeatureOverlay extends StatefulWidget {
   /// all of the current steps are dismissed.
   final Future<bool> Function()? onBackgroundTap;
 
-  /// Radius of the target circle. defaults to 44.
+  /// Radius of the target circle.
+  ///
+  /// The default value for [targetRadius] is `44`.
   final double? targetRadius;
 
   const DescribedFeatureOverlay({

@@ -121,6 +121,26 @@ This is `OverflowMode.ignore` by default, which will simply render the content y
  
  * `OverflowMode.wrapBackground` will expand the background circle if necessary, but also shrink it if the content is smaller than the default background size. 
 
+#### `targetRadius`
+
+The `targetRadius` property allows you to customize the radius of the tap target circle. If you don't provide a value, it defaults to `44.0`.
+
+**Example:**
+
+```dart
+DescribedFeatureOverlay(
+  featureId: 'custom-target-radius-feature',
+  tapTarget: const Icon(Icons.add),
+  targetRadius: 60.0, // Custom radius for the target
+  title: const Text('Custom Target Radius'),
+  description: const Text('This feature overlay has a larger target radius.'),
+  child: FloatingActionButton(
+    onPressed: () {},
+    child: const Icon(Icons.add),
+  ),
+)
+```
+
 </details>
 
 ### `FeatureDiscovery.discoverFeatures` 
